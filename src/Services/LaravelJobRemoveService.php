@@ -5,46 +5,29 @@ namespace rajmundtoth0\LaravelJobRemove\Services;
 use Illuminate\Redis\Connections\PhpRedisConnection;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Queue;
-use RuntimeException;
 use stdClass;
 use Throwable;
 
 /** @package rajmundtoth0\LaravelJobRemove\Services */
-final readonly class LaravelJobRemoveService
+final class LaravelJobRemoveService
 {
     private const int JOB_CHUNK_SIZE = 1_000;
 
-    public function __construct(
-        private ?PhpRedisConnection $horizonConnection,
-        private ?PhpRedisConnection $queueConnection,
-        private string $horizonPrefix,
-        private string $jobName,
-        private string $connectionName,
-        private int $limit,
-        private string $queueName,
-        private string $horizonConnectionName,
-        /** @var array<string, mixed> */
-        private array $horizonConfig,
-    ) {
-        $this->horizonConfig = $this->getHorizonConfig();
-        list($this->horizonPrefix = $this->horizonConfig['prefix'];
-        $this->horizonConnectionName ??= $this->horizonConfig['use'];
-    }
+    private ?PhpRedisConnection $horizonConnection = null;
 
-    // public function setCliArguments(
-    //     string $queueName,
-    //     string $jobName,
-    //     int $limit,
-    //     ?string $horizonConnectionName,
-    //     string $connectionName,
-    // ): void {
-    //     $this->horizonPrefix         = $this->horizonConfig['prefix'];
-    //     $this->jobName               = $jobName;
-    //     $this->limit                 = $limit;
-    //     $this->queueName             = $queueName;
-    //     $this->horizonConnectionName = $horizonConnectionName ?: $this->horizonConfig['use'];
-    //     $this->connectionName        = $connectionName;
-    // }
+    private ?PhpRedisConnection $queueConnection = null;
+
+    private string $horizonPrefix;
+
+    public function __construct(
+        private readonly string $jobName,
+        private readonly string $connectionName,
+        private readonly int $limit,
+        private readonly string $queueName,
+        private string $horizonConnectionName,
+    ) {
+        list($this->horizonPrefix, $this->horizonConnectionName) = $this->getConfigsFromHorizon();
+    }
 
     public function removeJobs(): void
     {
@@ -168,17 +151,27 @@ final readonly class LaravelJobRemoveService
     }
 
     /**
-     * @throws RuntimeException
      * @throws Throwable
      *
-     * @return array<string, mixed>
+     * @return array<int, string>
      */
-    private function getHorizonConfig(): array
+    private function getConfigsFromHorizon(): array
     {
         $config = Config::get('horizon', null);
 
         throw_unless(is_array($config), 'No Horizon config found!');
+        throw_unless(
+            array_key_exists('prefix', $config) && is_string($config['prefix']),
+            'Horizon prefix is invalid or not found!'
+        );
+        throw_unless(
+            array_key_exists('use', $config) && is_string($config['use']),
+            'Horizon connection name is invalid or not found!'
+        );
 
-        return $config;
+        return [
+            $config['prefix'],
+            $config['use'],
+        ];
     }
 }

@@ -1,12 +1,14 @@
 <?php
 
-namespace App\Console\Commands;
+namespace rajmundtoth0\LaravelJobRemove\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Queue;
 use rajmundtoth0\LaravelJobRemove\Services\LaravelJobRemoveService;
+use RuntimeException;
+use Throwable;
 
 class LaravelJobRemoveCommand extends Command
 {
@@ -23,11 +25,14 @@ class LaravelJobRemoveCommand extends Command
 
     /**
      * The console command description.
-     *
      * @var string
      */
     protected $description = 'Command description';
 
+    /**
+     * @throws Throwable
+     * @throws RuntimeException
+     */
     public function handle(): void
     {
         $connectionName = $this->choice(
@@ -35,14 +40,18 @@ class LaravelJobRemoveCommand extends Command
             $this->getConnectionsFromConfig(),
             multiple: false
         );
+
         $queueName = $this->argument('queue');
         throw_unless(is_string($queueName), 'Queue name must be a string');
+
         $jobName = $this->argument('job');
         throw_unless(is_string($jobName), 'Job name must be a string');
-        $limit = $this->option('limit');
+
+        $limit = (int) $this->option('limit');
         throw_unless(is_int($limit), 'Limit must be an integer');
-        $horizonConnectionName = $this->option('horizonConnectionName');
-        throw_unless(is_string($horizonConnectionName) || is_null($horizonConnectionName), 'Horizon connection name must be a string');
+
+        $horizonConnectionName = $this->option('horizonConnectionName') ?: '';
+        throw_unless(is_string($horizonConnectionName), 'Horizon connection name must be a string');
 
         $laravelJobRemoveService = App::make(LaravelJobRemoveService::class, [
             'connectionName'        => $connectionName,

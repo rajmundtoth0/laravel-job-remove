@@ -2,8 +2,8 @@
 
 namespace rajmundtoth0\LaravelJobRemove;
 
-use App\Console\Commands\LaravelJobRemoveCommand;
 use Illuminate\Support\ServiceProvider;
+use rajmundtoth0\LaravelJobRemove\Console\LaravelJobRemoveCommand;
 use rajmundtoth0\LaravelJobRemove\Services\LaravelJobRemoveService;
 
 class LaravelJobRemoveServiceProvider extends ServiceProvider
