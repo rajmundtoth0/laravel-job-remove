@@ -1,4 +1,3 @@
-
 <?php
 
 namespace rajmundtoth0\LaravelJobRemove;
@@ -17,9 +16,9 @@ class LaravelJobRemoveServiceProvider extends ServiceProvider
                 LaravelJobRemoveCommand::class,
             ]);
 
-            $this->publishes([
-                __DIR__.'/../config/audit.php' => config_path('audit.php'),
-            ]);
+            // $this->publishes([
+            //     __DIR__.'/../config/audit.php' => config_path('audit.php'),
+            // ]);
         }
     }
 }

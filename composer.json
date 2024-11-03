@@ -23,7 +23,6 @@
         }
     },
     "autoload-dev": {
-        "files": ["config/audit.php"],
         "psr-4": {
             "rajmundtoth0\\LaravelJobRemove\\Tests\\": "tests/",
             "Workbench\\App\\": "workbench/app/"
