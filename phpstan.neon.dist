@@ -1,0 +1,14 @@
+includes:
+	- vendor/phpstan/phpstan-phpunit/extension.neon
+	- vendor/larastan/larastan/extension.neon
+parameters:
+	level: max
+	paths:
+		- src
+		- tests
+	exceptions:
+		reportUncheckedExceptionDeadCatch: true
+		implicitThrows: false
+		check:
+			missingCheckedExceptionInThrows: true
+			tooWideThrowType: true

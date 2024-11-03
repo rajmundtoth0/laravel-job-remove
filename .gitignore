@@ -1,0 +1,6 @@
+vendor
+*.crt
+.phpunit.result.cache
+composer.lock
+.php-cs-fixer.cache
+CoverageReport
