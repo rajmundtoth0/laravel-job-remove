@@ -61,7 +61,8 @@ class LaravelJobRemoveCommand extends Command
             'horizonConnectionName' => $horizonConnectionName,
         ]);
 
-        $laravelJobRemoveService->removeJobs();
+        $result = $laravelJobRemoveService->removeJobs();
+        $this->info("Removed {$result} jobs [{$jobName}] from queue: {$queueName}");
     }
 
     /**

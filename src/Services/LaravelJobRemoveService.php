@@ -2,9 +2,10 @@
 
 namespace rajmundtoth0\LaravelJobRemove\Services;
 
+use Illuminate\Redis\Connections\Connection;
 use Illuminate\Redis\Connections\PhpRedisConnection;
 use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Redis;
 use stdClass;
 use Throwable;
 
@@ -25,14 +26,15 @@ final class LaravelJobRemoveService
         private readonly int $limit,
         private readonly string $queueName,
         private string $horizonConnectionName,
+        private int $jobsRemovedCounter = 0,
     ) {
         list($this->horizonPrefix, $this->horizonConnectionName) = $this->getConfigsFromHorizon();
     }
 
-    public function removeJobs(): void
+    public function removeJobs(): int
     {
-        $limit = -1 === $this->limit ? self::JOB_CHUNK_SIZE : $this->limit;
-
+        $limit     = -1 === $this->limit ? self::JOB_CHUNK_SIZE : $this->limit;
+        $limit     = 2; // FIX
         $queueData = $this->getQueueData(
             limit: $limit - 1,
         );
@@ -41,10 +43,10 @@ final class LaravelJobRemoveService
         $counter = 0;
         foreach ($queueData as $index => $job) {
             $encodedJob = $this->getDecodedJob($job);
-
             if ('*' !== $this->jobName && $encodedJob->displayName !== $this->jobName) {
                 continue;
             }
+
             $this->getQueueConnection()
                 ->lrem($queue, $index, $job);
 
@@ -59,11 +61,12 @@ final class LaravelJobRemoveService
             $counter++;
         }
 
-        dump("Removed {$counter} jobs [{$this->jobName}] from queue: {$this->queueName}");
-
+        $this->jobsRemovedCounter += $counter;
         if (-1 === $this->limit && $counter) {
             $this->removeJobs();
         }
+
+        return $this->jobsRemovedCounter;
     }
 
     /**
@@ -73,8 +76,7 @@ final class LaravelJobRemoveService
      */
     private function getDecodedJob(string $job): object
     {
-        $encodedJob = json_decode($job);
-
+        $encodedJob = json_decode($job, false, JSON_THROW_ON_ERROR | JSON_FORCE_OBJECT);
         throw_unless(
             $encodedJob && $encodedJob instanceof stdClass,
             'Invalid job data found!'
@@ -83,16 +85,13 @@ final class LaravelJobRemoveService
         return $encodedJob;
     }
 
-    private function getQueueConnection(): PhpRedisConnection
+    private function getQueueConnection(): Connection
     {
         if ($this->queueConnection) {
             return $this->queueConnection;
         }
 
-        assert(method_exists(Queue::class, 'getRedis'), 'Queue facade not found!');
-
-        return Queue::getRedis()
-            ->connection($this->connectionName);
+        return Redis::connection($this->connectionName);
     }
 
     private function getHorizonConnection(): PhpRedisConnection
@@ -101,10 +100,7 @@ final class LaravelJobRemoveService
             return $this->horizonConnection;
         }
 
-        assert(method_exists(Queue::class, 'getRedis'), 'Queue facade not found!');
-
-        return Queue::getRedis()
-            ->connection($this->horizonConnectionName);
+        return Redis::connection($this->horizonConnectionName);
     }
 
     private function checkJobStatus(string $horizonJobId): bool
@@ -132,9 +128,10 @@ final class LaravelJobRemoveService
      */
     private function getQueueData(int $limit): array
     {
+        //dd($this->getQueueConnection());
+        //dd($limit);
         $queueData = $this->getQueueConnection()
             ->lrange('queues:'.$this->queueName, 0, $limit);
-
         if (!$queueData) {
             exit("No jobs [{$this->jobName}] found in queue: {$this->queueName}");
         }
