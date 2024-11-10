@@ -1,6 +1,6 @@
 [![Latest Stable Version](http://poser.pugx.org/rajmundtoth0/laravel-job-remove/v)](https://packagist.org/packages/rajmundtoth0/laravel-job-remove)
 [![codecov](https://codecov.io/gh/rajmundtoth0/laravel-job-remove/graph/badge.svg?token=BKO7DT2WT9)](https://codecov.io/gh/rajmundtoth0/laravel-job-remove)
-[![PHPStan](https://img.shields.io/badge/PHPStan-Level%2MAX-brightgreen.svg?style=flat&logo=php)](https://shields.io/#/)
+![PHPSTAN](https://img.shields.io/badge/PHPStan-Level_MAX-brightgreen)
 
 # Laravel Job Remove
 
