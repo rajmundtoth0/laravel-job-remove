@@ -16,9 +16,9 @@ class LaravelJobRemoveServiceProvider extends ServiceProvider
                 LaravelJobRemoveCommand::class,
             ]);
 
-            // $this->publishes([
-            //     __DIR__.'/../config/audit.php' => config_path('audit.php'),
-            // ]);
+            $this->publishes([
+                __DIR__ . '/../config/job-remove.php' => config_path('job-remove.php'),
+            ]);
         }
     }
 }
