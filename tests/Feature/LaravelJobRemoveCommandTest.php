@@ -4,21 +4,25 @@ namespace rajmundtoth0\LaravelJobRemove\Tests\Feature;
 
 use Illuminate\Foundation\Testing\WithConsoleEvents;
 use Illuminate\Redis\Connections\PhpRedisConnection;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Redis;
-use illuminate\support\Str;
+use Illuminate\Testing\PendingCommand;
 use Mockery;
+use Mockery\MockInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use rajmundtoth0\LaravelJobRemove\Tests\TestCase;
 use rajmundtoth0\LaravelJobRemove\Tests\TestJob;
-
+use RuntimeException;
+use stdClass;
 /**
  * @internal
  */
 class LaravelJobRemoveCommandTest extends TestCase
 {
     use WithConsoleEvents;
+
+    private MockInterface $redis;
 
     protected function setUp(): void
     {
@@ -54,132 +58,302 @@ class LaravelJobRemoveCommandTest extends TestCase
             ]
         ]);
         Queue::fake();
+
+        $this->redis = $this->getMockedRedisConnection();
+        $this->setUpRedisFacade();
     }
 
-    private function getJobString(): string
+    private function getMockedRedisConnection(): MockInterface
     {
-        $uuid = Str::uuid()->toString();
-
-        return '{"uuid":"'.$uuid.'",
-                "displayName":"rajmundtoth0\\\\LaravelJobRemove\\\\Tests\\\\TestJob",
-                "job":"Illuminate\\\\Queue\\\\CallQueuedHandler@call",
-                "maxTries":"null",
-                "maxExceptions":"null",
-                "failOnTimeout":false,
-                "backoff":"null","timeout":"null"
-                ,"retryUntil":"null","data":{
-                "commandName":"rajmundtoth0\\\\LaravelJobRemove\\\\Tests\\\\TestJob",
-                "command":"O:16:\\"App\\\\Jobs\\\\TestJob\\":1:{s:5:\\"queue\\";s:7:\\"default\\";}"},
-                "id":"'.$uuid.'","attempts":0,"type":"job",
-                "tags":[],"silenced":false,"pushedAt":"1729411372.3932"}';
+        return Mockery::mock(PhpRedisConnection::class);
     }
 
-    private function mockRedis(int $jobCount = 1): void
+    private function setUpRedisFacade(): void
     {
-        $redis = Mockery::mock(PhpRedisConnection::class);
         Redis::shouldReceive('connection')
             ->with('queue')
-            ->andReturn($redis
-            );
+            ->andReturn($this->redis);
         Redis::shouldReceive('connection')
-        ->with('default')
-        ->andReturn($redis
-        );
-        $jobString = $this->getJobString();
-        $redis->shouldReceive('lrange')
-            ->withArgs(['queues:queue', 0, 1])
-            ->andReturn([
-                $jobString
-            ])
-        ->once()
-        ->shouldReceive('lrem')
-        ->withArgs(['queues:queue', 0, $jobString])
-        ->andReturn(1)
-        ->once()
-        ->shouldReceive('hmget')
-        ->withArgs(['horizon:12e2071b-a412-410a-8d8a-68721001ce01', ['status']])
-        ->andReturn(['status' => 'pending'])
-        ->once()
-        ->shouldReceive('del')
-        ->withArgs(['horizon:12e2071b-a412-410a-8d8a-68721001ce01'])
-        ->andReturn(1)
-        ->once();
+            ->with('default')
+            ->andReturn($this->redis);
     }
 
-    public function test_it_removes_specified_job_from_queue(): void
+    /**
+     * @param array<int|string, int|string> $jobStrings
+     */
+    private function mockLrangeCommand(array $jobStrings, int $stop = 2, int $start = 0): void
     {
-        $this->mockRedis();
+        /** @phpstan-ignore-next-line */
+        $this->redis->shouldReceive('lrange')
+            ->withArgs(['queues:queue', $start, $stop])
+           ->once()
+           ->andReturn($jobStrings)
+           ->once();
+    }
+
+    private function mockLremCommand(int $index, string $jobString): void
+    {
+        /** @phpstan-ignore-next-line */
+        $this->redis->shouldReceive('lrem')
+            ->withArgs(['queues:queue', $index, $jobString])
+            ->andReturn(1)
+            ->once();
+    }
+
+    private function mockHmgetCommand(string $jobId): void
+    {
+        /** @phpstan-ignore-next-line */
+        $this->redis->shouldReceive('hmget')
+            ->withArgs(["horizon:{$jobId}", ['status']])
+            ->andReturn(['status' => 'pending'])
+            ->once();
+    }
+
+    private function mockDelCommand(string $jobId): void
+    {
+        /** @phpstan-ignore-next-line */
+        $this->redis->shouldReceive('del')
+            ->withArgs(["horizon:{$jobId}"])
+            ->andReturn(1)
+            ->once();
+    }
+
+    private function decodeJobString(string $jobString): stdClass
+    {
+        $decodedJob = json_decode($jobString, false);
+        assert($decodedJob instanceof stdClass);
+
+        return $decodedJob;
+    }
+
+    private function getCommand(?string $queue, ?string $jobName, string|int $limit): PendingCommand
+    {
+        $command = $this->artisan('queue:remove', [
+            'queue'   => $queue,
+            'job'     => $jobName,
+            '--limit' => $limit,
+        ]);
+
+        assert($command instanceof PendingCommand);
+
+        return $command;
+    }
+
+    /**
+     * @throws RuntimeException
+     */
+    #[DataProvider('itRemovesSpecifiedJobFromQueueCases')]
+    public function testItRemovesSpecifiedJobFromQueue(int $limit, int $removedJobs): void
+    {
+        $jobString      = $this->getJobString();
+        $decodedJob     = $this->decodeJobString($jobString);
+        $otherJobString = $this->getJobString('OtherJob.json');
+
+        $this->mockLrangeCommand(
+            jobStrings: [$jobString, $otherJobString],
+            stop: $limit,
+        );
+        $this->mockLremCommand(index: 0, jobString: $jobString);
+        $this->mockHmgetCommand(jobId: $decodedJob->id);
+        $this->mockDelCommand(jobId: $decodedJob->id);
 
         $jobName = TestJob::class;
-        $result  = $this->artisan('queue:remove', [
-            'queue'   => 'queue',
-            'job'     => $jobName,
-            '--limit' => 1,
-        ])
+        $this->getCommand(
+            queue: 'queue',
+            jobName: $jobName,
+            limit: $limit,
+        )
+        ->expectsQuestion('Connection name?', 'queue')
+        ->expectsOutputToContain("Removed {$removedJobs} jobs [{$jobName}] from queue: queue")
+        ->assertExitCode(0);
+    }
+
+    /**
+     * @throws RuntimeException
+     */
+    public function testSkipsJobRemovalIfJobIsNotPending(): void
+    {
+        $jobString       = $this->getJobString();
+        $decodedJob      = $this->decodeJobString($jobString);
+        $otherJobString  = $this->getJobString('OtherJob.json');
+        $decodedOtherJob = $this->decodeJobString($otherJobString);
+
+        $this->mockLrangeCommand(
+            jobStrings: [$jobString, $otherJobString],
+            stop: 999,
+        );
+        $this->mockHmgetCommand(jobId: $decodedJob->id);
+        $this->mockLremCommand(index: 0, jobString: $jobString);
+        $this->mockDelCommand(jobId: $decodedJob->id);
+        /** @phpstan-ignore-next-line */
+        $this->redis->shouldReceive('hmget')
+            ->withArgs(["horizon:{$decodedOtherJob->id}", ['status']])
+            ->andReturn(['status' => 'started'])
+            ->once();
+
+        $this->getCommand(
+            queue: 'queue',
+            jobName: '*',
+            limit: 'all',
+        )
             ->expectsQuestion('Connection name?', 'queue')
-            ->expectsOutputToContain("Removed 1 jobs [{$jobName}] from queue: queue")
+            ->expectsOutputToContain("Removed 1 jobs [*] from queue: queue")
             ->assertExitCode(0);
     }
 
-    // public function test_it_removes_all_jobs_from_queue(): void
-    // {
-    //     $this->mockRedis(jobCount: 2);
-
-    //     $jobName = TestJob::class;
-    //     $result  = $this->artisan('queue:remove', [
-    //         'queue'   => 'queue',
-    //         'job'     => $jobName,
-    //         '--limit' => 1,
-    //     ])
-    //         ->expectsQuestion('Connection name?', 'queue')
-    //         ->expectsOutputToContain("Removed 2 jobs [{$jobName}] from queue: queue")
-    //         ->assertExitCode(0);
-    // }
-
-    // public function test_it_removes_jobs_with_limit(): void
-    // {
-    //     TestJob::dispatch();
-    //     TestJob::dispatch();
-
-    //     Queue::assertPushed(TestJob::class, 2);
-
-    //     Artisan::call('queue:remove', [
-    //         'queue'   => 'default',
-    //         'job'     => TestJob::class,
-    //         '--limit' => 1,
-    //     ]);
-
-    //     Queue::assertPushed(TestJob::class, 1);
-    // }
-
-    public function test_it_throws_exception_for_invalid_queue_name(): void
+    public function testItExistsOnEmptyQueue(): void
     {
-        $this->expectException(\RuntimeException::class);
+        $this->mockLrangeCommand(jobStrings: [], stop: 999);
 
-        Artisan::call('queue:remove', [
-            'job'     => TestJob::class,
-            '--limit' => 1,
-        ]);
+        $this->getCommand(
+            queue: 'queue',
+            jobName: '*',
+            limit: 'all',
+        )
+            ->expectsQuestion('Connection name?', 'queue')
+            ->expectsOutputToContain("Removed 0 jobs [*] from queue: queue")
+            ->assertExitCode(0);
     }
 
-    public function test_it_throws_exception_for_invalid_job_name(): void
+    /**
+     * @throws RuntimeException
+     */
+    public function testItRemovesAllJobsFromQueue(): void
     {
-        $this->expectException(\RuntimeException::class);
+        $jobString       = $this->getJobString();
+        $decodedJob      = $this->decodeJobString($jobString);
+        $otherJobString  = $this->getJobString('OtherJob.json');
+        $decodedOtherJob = $this->decodeJobString($otherJobString);
 
-        Artisan::call('queue:remove', [
-            'queue'   => 'default',
-            '--limit' => 1,
-        ]);
+        $this->mockLrangeCommand(
+            jobStrings: [$jobString, $otherJobString],
+            stop: 999,
+        );
+        $this->mockLremCommand(index: 0, jobString: $jobString);
+        $this->mockHmgetCommand(jobId: $decodedJob->id);
+        $this->mockDelCommand(jobId: $decodedJob->id);
+        $this->mockLremCommand(index:1, jobString: $otherJobString);
+        $this->mockHmgetCommand(jobId: $decodedOtherJob->id);
+        $this->mockDelCommand(jobId: $decodedOtherJob->id);
+
+        $this->getCommand(
+            queue: 'queue',
+            jobName: '*',
+            limit: 'all',
+        )
+            ->expectsQuestion('Connection name?', 'queue')
+            ->expectsOutputToContain("Removed 2 jobs [*] from queue: queue")
+            ->assertExitCode(0);
     }
 
-    // public function test_it_throws_exception_for_invalid_limit(): void
-    // {
-    //     $this->expectException(\RuntimeException::class);
+    /**
+     * @throws RuntimeException
+     */
+    public function testItRemovesAllJobsFromQueueInChunks(): void
+    {
+        Config::set('job-remove.job_chunk_size', 1);
+        $jobString       = $this->getJobString();
+        $decodedJob      = $this->decodeJobString($jobString);
+        $otherJobString  = $this->getJobString('OtherJob.json');
+        $decodedOtherJob = $this->decodeJobString($otherJobString);
 
-    //     Artisan::call('queue:remove', [
-    //         'queue'   => 'default',
-    //         'job'     => TestJob::class,
-    //         '--limit' => 'invalid',
-    //     ]);
-    // }
+        $this->mockLrangeCommand(
+            jobStrings: [$jobString],
+            stop: 1,
+            start: 0,
+        );
+        $this->mockLremCommand(index: 0, jobString: $jobString);
+        $this->mockHmgetCommand(jobId: $decodedJob->id);
+        $this->mockDelCommand(jobId: $decodedJob->id);
+        $this->mockLrangeCommand(
+            jobStrings: [$otherJobString],
+            stop: 1,
+            start: 1,
+        );
+        $this->mockLremCommand(index:0, jobString: $otherJobString);
+        $this->mockHmgetCommand(jobId: $decodedOtherJob->id);
+        $this->mockDelCommand(jobId: $decodedOtherJob->id);
+
+        $this->mockLrangeCommand(
+            jobStrings: [],
+            stop: 1,
+            start: 2,
+        );
+        $this->getCommand(
+            queue: 'queue',
+            jobName: '*',
+            limit: 'all',
+        )
+            ->expectsQuestion('Connection name?', 'queue')
+            ->expectsOutputToContain("Removed 2 jobs [*] from queue: queue")
+            ->assertExitCode(0);
+    }
+
+    #[DataProvider('itThrowsExceptionCases')]
+    public function testItThrowsException(?string $queueName, ?string $jobName, int|string $limit, string $message): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage($message);
+
+        $this->getCommand(
+            queue: $queueName,
+            jobName:$jobName,
+            limit: $limit,
+        )
+        ->expectsQuestion('Connection name?', 'queue');
+    }
+
+    /**
+     * @return array<int, array{queueName: null|string, jobName: null|string, limit: int|string, message: string}>
+     */
+    public static function itThrowsExceptionCases(): array
+    {
+        return [
+            [
+                'queueName' => null,
+                'jobName'   => TestJob::class,
+                'limit'     => 1,
+                'message'   => 'Queue name must be a string',
+            ],
+            [
+                'queueName' => 'default',
+                'jobName'   => null,
+                'limit'     => 1,
+                'message'   => 'Job name must be a string',
+            ],
+            [
+                'queueName' => 'default',
+                'jobName'   => TestJob::class,
+                'limit'     => 'a',
+                'message'   => 'Limit must be a positive integer',
+            ],
+            [
+                'queueName' => 'default',
+                'jobName'   => TestJob::class,
+                'limit'     => 'a',
+                'message'   => 'Limit must be a positive integer',
+            ],
+        ];
+    }
+
+    /**
+     * @return array<int, array{limit: int, removedJobs: int}>
+     */
+    public static function itRemovesSpecifiedJobFromQueueCases(): array
+    {
+        return [
+            [
+                'limit'       => 1,
+                'removedJobs' => 1,
+            ],
+            [
+                'limit'       => 2,
+                'removedJobs' => 1,
+            ],
+            [
+                'limit'       => 3,
+                'removedJobs' => 1,
+            ],
+        ];
+    }
 }

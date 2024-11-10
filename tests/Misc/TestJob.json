@@ -1,0 +1,21 @@
+{
+    "uuid": "12e2071b-a412-410a-8d8a-68721001ce01",
+    "displayName": "rajmundtoth0\\LaravelJobRemove\\Tests\\TestJob",
+    "job": "Illuminate\\Queue\\CallQueuedHandler@call",
+    "maxTries": null,
+    "maxExceptions": null,
+    "failOnTimeout": false,
+    "backoff": null,
+    "timeout": null,
+    "retryUntil": null,
+    "data": {
+        "commandName": "rajmundtoth0\\LaravelJobRemove\\Tests\\TestJob",
+        "command": "O:16:\"App\\Jobs\\TestJob\":1:{s:5:\"queue\";s:7:\"default\";}"
+    },
+    "id": "12e2071b-a412-410a-8d8a-68721001ce01",
+    "attempts": 0,
+    "type": "job",
+    "tags": [],
+    "silenced": false,
+    "pushedAt": "1729411372.3932"
+}

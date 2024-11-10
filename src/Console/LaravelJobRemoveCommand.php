@@ -5,7 +5,6 @@ namespace rajmundtoth0\LaravelJobRemove\Console;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\Queue;
 use rajmundtoth0\LaravelJobRemove\Services\LaravelJobRemoveService;
 use RuntimeException;
 use Throwable;
@@ -19,8 +18,8 @@ class LaravelJobRemoveCommand extends Command
      */
     protected $signature = 'queue:remove
     {queue : The name of the queue}
-    {job : The name of the job, set to * to remove all}
-    {--L|limit=1 : The amount of jobs to remove, set to -1 to remove all}
+    {job : The name of the job, set to `"all"` to remove all}
+    {--L|limit=1 : The amount of jobs to remove, set to `"all"` to remove all}
     {--H|horizonConnectionName= : The name of the Horizon connection}';
 
     /**
@@ -47,8 +46,17 @@ class LaravelJobRemoveCommand extends Command
         $jobName = $this->argument('job');
         throw_unless(is_string($jobName), 'Job name must be a string');
 
-        $limit = (int) $this->option('limit');
-        throw_unless(is_int($limit), 'Limit must be an integer');
+        $limit     = $this->option('limit');
+        $removeAll = false;
+        if ('all' === $limit) {
+            $limit     = 1;
+            $removeAll = true;
+        }
+
+        throw_unless(
+            is_numeric($limit) && $limit > 0,
+            'Limit must be a positive integer'
+        );
 
         $horizonConnectionName = $this->option('horizonConnectionName') ?: '';
         throw_unless(is_string($horizonConnectionName), 'Horizon connection name must be a string');
@@ -59,6 +67,7 @@ class LaravelJobRemoveCommand extends Command
             'jobName'               => $jobName,
             'limit'                 => $limit,
             'horizonConnectionName' => $horizonConnectionName,
+            'removeAll'             => $removeAll,
         ]);
 
         $result = $laravelJobRemoveService->removeJobs();
@@ -80,7 +89,3 @@ class LaravelJobRemoveCommand extends Command
         );
     }
 }
-//   string(484) "{"uuid":"12e2071b-a412-410a-8d8a-68721001ce01","displayName":"App\\Jobs\\TestJob","job":"Illuminate\\Queue\\CallQueuedHandler@call",
-// "maxTries":null,"maxExceptions":null,"failOnTimeout":false,"backoff":null,"timeout":null,"retryUntil":null,
-// "data":{"commandName":"App\\Jobs\\TestJob","command":"O:16:\"App\\Jobs\\TestJob\":1:{s:5:\"queue\";s:7:\"default\";}"},
-// "id":"12e2071b-a412-410a-8d8a-68721001ce01","attempts":0,"type":"job","tags":[],"silenced":false,"pushedAt":"1729411372.3932"}"

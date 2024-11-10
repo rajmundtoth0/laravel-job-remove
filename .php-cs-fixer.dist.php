@@ -237,7 +237,8 @@ return $config
         // Yield from array must be unpacked to series of yields.
         'yield_from_array_to_yields' => true,
         // Write conditions in Yoda style (`true`), non-Yoda style (`['equal' => false, 'identical' => false, 'less_and_greater' => false]`) or ignore those conditions (`null`) based on configuration.
-        'yoda_style' => true,
+        'yoda_style'   => true,
+        'concat_space' => ['spacing' => 'one'],
     ])
     ->setFinder(
         PhpCsFixer\Finder::create()
