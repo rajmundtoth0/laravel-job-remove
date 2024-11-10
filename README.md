@@ -12,7 +12,10 @@ composer require rajmundtoth0/laravel-job-remove
 
 ## Usage
 
-To use this package, simply call the provided methods in your Laravel application. 
+```
+bash
+php artisan queue:remove [queue] [job] --limit 1
+```
 
 **Use at your own risk.** This package directly manipulates the job queue and should be used with caution.
 
