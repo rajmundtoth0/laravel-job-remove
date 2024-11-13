@@ -102,7 +102,7 @@ class LaravelJobRemoveCommandTest extends TestCase
     {
         $this->redis->shouldReceive('hmget')
             ->withArgs(["horizon:{$jobId}", ['status']])
-            ->andReturn(['pending'])
+            ->andReturn(['status' => 'pending'])
             ->once();
     }
 
@@ -183,7 +183,7 @@ class LaravelJobRemoveCommandTest extends TestCase
         $this->mockDelCommand(jobId: $decodedJob->id);
         $this->redis->shouldReceive('hmget')
             ->withArgs(["horizon:{$decodedOtherJob->id}", ['status']])
-            ->andReturn(['started'])
+            ->andReturn(['status' => 'started'])
             ->once();
 
         $this->getCommand(

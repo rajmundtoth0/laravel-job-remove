@@ -69,11 +69,8 @@ final class LaravelJobRemoveService
             }
 
             $this->getQueueConnection()
-                ->lrem(
-                    key: $queue,
-                    count: $index,
-                    value: $job
-                );
+            /** @phpstan-ignore-next-line */
+                ->lrem($queue, $index, $job);
 
             $this->getHorizonConnection()
                 ->del($horizonJobId);
@@ -139,8 +136,8 @@ final class LaravelJobRemoveService
             );
         if (
             !$horizonJob
-            || !array_key_exists(0, $horizonJob)
-            || 'pending' !== $horizonJob[0]
+            || !array_key_exists('status', $horizonJob)
+            || 'pending' !== $horizonJob['status'] // check statuses
         ) {
             return false;
         }
