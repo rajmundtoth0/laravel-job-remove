@@ -35,7 +35,7 @@ class LaravelJobRemoveCommandTest extends TestCase
             'driver'       => 'redis',
             'connection'   => 'queue',
             'queue'        => 'default',
-            'retry_after'  => 5 * 60 + 3 * 60 * 60, // Five minutes after the longest job timeout
+            'retry_after'  => 5 * 60 + 3 * 60 * 60,
             'block_for'    => null,
             'after_commit' => true,
         ]);
@@ -83,7 +83,6 @@ class LaravelJobRemoveCommandTest extends TestCase
      */
     private function mockLrangeCommand(array $jobStrings, int $stop = 2, int $start = 0): void
     {
-        /** @phpstan-ignore-next-line */
         $this->redis->shouldReceive('lrange')
             ->withArgs(['queues:queue', $start, $stop])
            ->once()
@@ -93,7 +92,6 @@ class LaravelJobRemoveCommandTest extends TestCase
 
     private function mockLremCommand(int $index, string $jobString): void
     {
-        /** @phpstan-ignore-next-line */
         $this->redis->shouldReceive('lrem')
             ->withArgs(['queues:queue', $index, $jobString])
             ->andReturn(1)
@@ -102,7 +100,6 @@ class LaravelJobRemoveCommandTest extends TestCase
 
     private function mockHmgetCommand(string $jobId): void
     {
-        /** @phpstan-ignore-next-line */
         $this->redis->shouldReceive('hmget')
             ->withArgs(["horizon:{$jobId}", ['status']])
             ->andReturn(['status' => 'pending'])
@@ -111,7 +108,6 @@ class LaravelJobRemoveCommandTest extends TestCase
 
     private function mockDelCommand(string $jobId): void
     {
-        /** @phpstan-ignore-next-line */
         $this->redis->shouldReceive('del')
             ->withArgs(["horizon:{$jobId}"])
             ->andReturn(1)
@@ -185,7 +181,6 @@ class LaravelJobRemoveCommandTest extends TestCase
         $this->mockHmgetCommand(jobId: $decodedJob->id);
         $this->mockLremCommand(index: 0, jobString: $jobString);
         $this->mockDelCommand(jobId: $decodedJob->id);
-        /** @phpstan-ignore-next-line */
         $this->redis->shouldReceive('hmget')
             ->withArgs(["horizon:{$decodedOtherJob->id}", ['status']])
             ->andReturn(['status' => 'started'])
