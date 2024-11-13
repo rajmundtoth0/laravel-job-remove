@@ -147,7 +147,7 @@ class LaravelJobRemoveCommandTest extends TestCase
 
         $this->mockLrangeCommand(
             jobStrings: [$jobString, $otherJobString],
-            stop: $limit,
+            stop: $limit - 1,
         );
         $this->mockLremCommand(index: 0, jobString: $jobString);
         $this->mockHmgetCommand(jobId: $decodedJob->id);

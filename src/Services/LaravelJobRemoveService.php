@@ -155,11 +155,13 @@ final class LaravelJobRemoveService
      */
     private function getQueueData(): array
     {
+        $limit = !$this->removeAll ? $this->limit - 1 : $this->jobChunkSize;
+
         $queueData = $this->getQueueConnection()
             ->lrange(
                 'queues:' . $this->queueName,
                 $this->jobsRemovedCounter,
-                $this->limit
+                $limit
             );
 
         throw_unless(is_array($queueData), 'Invalid response from Redis!');
