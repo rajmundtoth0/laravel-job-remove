@@ -1,4 +1,4 @@
-[![Latest Stable Version](http://poser.pugx.org/rajmundtoth0/laravel-job-remove/version)](https://packagist.org/packages/rajmundtoth0/laravel-job-remove)
+[![Latest Stable Version](https://poser.pugx.org/rajmundtoth0/laravel-job-remove/version)](https://packagist.org/packages/rajmundtoth0/laravel-job-remove)
 [![codecov](https://codecov.io/gh/rajmundtoth0/laravel-job-remove/graph/badge.svg?token=BKO7DT2WT9)](https://codecov.io/gh/rajmundtoth0/laravel-job-remove)
 ![PHPSTAN](https://img.shields.io/badge/PHPStan-Level_MAX-brightgreen)
 
