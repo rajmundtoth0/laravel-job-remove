@@ -61,6 +61,7 @@ class LaravelJobRemoveCommand extends Command
         $horizonConnectionName = $this->option('horizonConnectionName') ?: '';
         throw_unless(is_string($horizonConnectionName), 'Horizon connection name must be a string');
 
+        /** @var LaravelJobRemoveService $laravelJobRemoveService */
         $laravelJobRemoveService = App::make(LaravelJobRemoveService::class, [
             'connectionName'        => $connectionName,
             'queueName'             => $queueName,
@@ -85,7 +86,7 @@ class LaravelJobRemoveCommand extends Command
         throw_unless(is_array($connections), 'No Redis connections found!');
 
         return array_keys(
-            array_filter($connections, fn(array|string $connection): bool => is_array($connection))
+            array_filter($connections, fn(mixed $connection): bool => is_array($connection))
         );
     }
 }

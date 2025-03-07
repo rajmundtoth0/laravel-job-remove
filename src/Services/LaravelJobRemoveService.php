@@ -34,8 +34,7 @@ final class LaravelJobRemoveService
         private int $jobChunkSize = 999,
     ) {
         list($this->horizonPrefix, $this->horizonConnectionName) = $this->getConfigsFromHorizon();
-        $chunkSize                                               = Config::get('job-remove.job_chunk_size', 999);
-        assert(is_int($chunkSize));
+        $chunkSize                                               = Config::integer('job-remove.job_chunk_size', 999);
         $this->jobChunkSize = $chunkSize;
     }
 
@@ -60,6 +59,10 @@ final class LaravelJobRemoveService
                 !$this->removeAll
                 && $encodedJob->displayName !== $this->jobName
             ) {
+                continue;
+            }
+
+            if (!is_string($encodedJob->id)) {
                 continue;
             }
 
@@ -182,9 +185,8 @@ final class LaravelJobRemoveService
      */
     private function getConfigsFromHorizon(): array
     {
-        $config = Config::get('horizon', null);
+        $config = Config::array('horizon', null);
 
-        throw_unless(is_array($config), 'No Horizon config found!');
         throw_unless(
             array_key_exists('prefix', $config) && is_string($config['prefix']),
             'Horizon prefix is invalid or not found!'
