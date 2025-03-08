@@ -35,7 +35,7 @@ final class LaravelJobRemoveService
     ) {
         list($this->horizonPrefix, $this->horizonConnectionName) = $this->getConfigsFromHorizon();
         $chunkSize                                               = Config::integer('job-remove.job_chunk_size', 999);
-        $this->jobChunkSize = $chunkSize;
+        $this->jobChunkSize                                      = $chunkSize;
     }
 
     /**
