@@ -42,17 +42,17 @@ class LaravelJobRemoveCommandTest extends TestCase
         Config::set('database', [
             'redis' => [
                 'queue' => [
-                    'url'      => env('REDIS_URL'),
-                    'host'     => env('REDIS_HOST', '127.0.0.1'),
-                    'password' => env('REDIS_PASSWORD', null),
-                    'port'     => env('REDIS_PORT', '6379'),
+                    'url'      => Config::string('REDIS_URL', ''),
+                    'host'     => Config::string('REDIS_HOST', '127.0.0.1'),
+                    'password' => Config::string('REDIS_PASSWORD', 'null'),
+                    'port'     => Config::integer('REDIS_PORT', 6379),
                     'database' => 15,
                 ],
                 'default' => [
-                    'url'      => env('REDIS_URL'),
-                    'host'     => env('REDIS_HOST', '127.0.0.1'),
-                    'password' => env('REDIS_PASSWORD', null),
-                    'port'     => env('REDIS_PORT', '6379'),
+                    'url'      => Config::string('REDIS_URL', ''),
+                    'host'     => Config::string('REDIS_HOST', '127.0.0.1'),
+                    'password' => Config::string('REDIS_PASSWORD', 'null'),
+                    'port'     => Config::integer('REDIS_PORT', 6379),
                     'database' => 1,
                 ],
             ]
@@ -150,6 +150,8 @@ class LaravelJobRemoveCommandTest extends TestCase
             stop: $limit - 1,
         );
         $this->mockLremCommand(index: 0, jobString: $jobString);
+
+        assert(is_string($decodedJob->id));
         $this->mockHmgetCommand(jobId: $decodedJob->id);
         $this->mockDelCommand(jobId: $decodedJob->id);
 
@@ -178,9 +180,11 @@ class LaravelJobRemoveCommandTest extends TestCase
             jobStrings: [$jobString, $otherJobString],
             stop: 999,
         );
+        assert(is_string($decodedJob->id));
         $this->mockHmgetCommand(jobId: $decodedJob->id);
         $this->mockLremCommand(index: 0, jobString: $jobString);
         $this->mockDelCommand(jobId: $decodedJob->id);
+        assert(is_string($decodedOtherJob->id));
         $this->redis->shouldReceive('hmget')
             ->withArgs(["horizon:{$decodedOtherJob->id}", ['status']])
             ->andReturn(['started'])
@@ -225,9 +229,11 @@ class LaravelJobRemoveCommandTest extends TestCase
             stop: 999,
         );
         $this->mockLremCommand(index: 0, jobString: $jobString);
+        assert(is_string($decodedJob->id));
         $this->mockHmgetCommand(jobId: $decodedJob->id);
         $this->mockDelCommand(jobId: $decodedJob->id);
         $this->mockLremCommand(index:1, jobString: $otherJobString);
+        assert(is_string($decodedOtherJob->id));
         $this->mockHmgetCommand(jobId: $decodedOtherJob->id);
         $this->mockDelCommand(jobId: $decodedOtherJob->id);
 
@@ -258,6 +264,7 @@ class LaravelJobRemoveCommandTest extends TestCase
             start: 0,
         );
         $this->mockLremCommand(index: 0, jobString: $jobString);
+        assert(is_string($decodedJob->id));
         $this->mockHmgetCommand(jobId: $decodedJob->id);
         $this->mockDelCommand(jobId: $decodedJob->id);
         $this->mockLrangeCommand(
@@ -266,6 +273,7 @@ class LaravelJobRemoveCommandTest extends TestCase
             start: 1,
         );
         $this->mockLremCommand(index:0, jobString: $otherJobString);
+        assert(is_string($decodedOtherJob->id));
         $this->mockHmgetCommand(jobId: $decodedOtherJob->id);
         $this->mockDelCommand(jobId: $decodedOtherJob->id);
 
